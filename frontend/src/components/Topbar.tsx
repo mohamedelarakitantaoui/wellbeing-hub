@@ -12,6 +12,7 @@ interface TopbarProps {
 const roleColors = {
   student: 'bg-primary/10 text-primary',
   counselor: 'bg-blue-100 text-blue-700',
+  intern: 'bg-teal-100 text-teal-700',
   moderator: 'bg-purple-100 text-purple-700',
   admin: 'bg-accent/10 text-accent',
 };
@@ -19,6 +20,7 @@ const roleColors = {
 const roleLabels = {
   student: 'Student',
   counselor: 'Counselor',
+  intern: 'Intern',
   moderator: 'Moderator',
   admin: 'Administrator',
 };

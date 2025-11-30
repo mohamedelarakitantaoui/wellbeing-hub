@@ -2,9 +2,14 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 
 export interface JWTPayload {
-  id: string;
-  role: string;
-  ageBracket?: string | null;
+  sub: string;          // userId or guestId
+  role: 'student' | 'staff' | 'faculty' | 'counselor' | 'intern' | 'admin' | 'guest' | 'moderator';
+  ageBracket?: 'UNDER18' | 'ADULT';
+  hasConsent?: boolean;  // for minors only
+  displayName?: string;  // "Anonymous Panda" or regular name
+  
+  // Legacy fields for backward compatibility
+  id?: string;
   consentMinorOk?: boolean;
 }
 
@@ -26,7 +31,16 @@ export const authMiddleware = (
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JWTPayload;
-    req.user = decoded;
+    
+    // Normalize the payload to ensure consistency
+    req.user = {
+      sub: decoded.sub || decoded.id!, // Use 'sub' or fall back to legacy 'id'
+      role: decoded.role,
+      ageBracket: decoded.ageBracket,
+      hasConsent: decoded.hasConsent !== undefined ? decoded.hasConsent : decoded.consentMinorOk,
+      displayName: decoded.displayName,
+    };
+    
     next();
   } catch (error) {
     res.status(401).json({ error: 'Invalid token' });
@@ -47,4 +61,9 @@ export const roleMiddleware = (allowedRoles: string[]) => {
 
     next();
   };
+};
+
+// Token verification helper for WebSocket authentication
+export const verifyToken = (token: string): JWTPayload => {
+  return jwt.verify(token, process.env.JWT_SECRET!) as JWTPayload;
 };

@@ -113,29 +113,37 @@ export function moderateContent(
 
 /**
  * Check if user can access a room based on age and room settings
- * @param userAgeBracket - User's age bracket
- * @param userConsentMinorOk - User's consent status
+ * @param userAgeBracket - User's age bracket ('UNDER18' or 'ADULT')
+ * @param userHasConsent - User's consent status
  * @param isMinorSafe - Room's minor-safe setting
- * @returns boolean indicating if access is allowed
+ * @param userRole - User's role
+ * @returns Object with allowed boolean and optional reason
  */
 export function canAccessRoom(
-  userAgeBracket: string | null,
-  userConsentMinorOk: boolean,
-  isMinorSafe: boolean
-): { allowed: boolean; reason?: string } {
-  // If room is not minor-safe and user is under 18
-  if (!isMinorSafe && userAgeBracket === 'MINOR') {
+  userAgeBracket: 'UNDER18' | 'ADULT' | null | undefined,
+  userHasConsent: boolean,
+  isMinorSafe: boolean,
+  userRole?: string
+): { allowed: boolean; reason?: string; readOnly?: boolean } {
+  // Counselors, interns, and admin ALWAYS allowed
+  if (userRole && ['counselor', 'intern', 'admin', 'moderator'].includes(userRole)) {
+    return { allowed: true };
+  }
+
+  // UNDER18 users can only join minor-safe rooms
+  if (userAgeBracket === 'UNDER18' && !isMinorSafe) {
     return {
       allowed: false,
       reason: 'This room is not available for users under 18.',
     };
   }
 
-  // Check if minor has consent
-  if (userAgeBracket === 'MINOR' && !userConsentMinorOk) {
+  // UNDER18 users without consent can view but not send messages
+  if (userAgeBracket === 'UNDER18' && !userHasConsent) {
     return {
-      allowed: false,
-      reason: 'Parental consent required for minors to access peer rooms.',
+      allowed: true,
+      readOnly: true,
+      reason: 'You need consent to send messages.',
     };
   }
 

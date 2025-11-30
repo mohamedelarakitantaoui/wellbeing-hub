@@ -16,7 +16,7 @@ import { api } from '../lib/api';
 const triageFormSchema = z.object({
   topic: z.string().min(1, 'Please select a topic'),
   moodScore: z.number().min(1).max(5),
-  urgency: z.enum(['Low', 'Medium', 'High'], {
+  urgency: z.enum(['low', 'medium', 'high'], {
     message: 'Please select urgency level',
   }),
   message: z.string().optional(),
@@ -26,11 +26,14 @@ type TriageFormData = z.infer<typeof triageFormSchema>;
 
 // Topic options
 const TOPICS = [
-  { value: 'Anxiety', label: 'Anxiety', emoji: '😰' },
-  { value: 'Stress', label: 'Stress', emoji: '😫' },
-  { value: 'Academic', label: 'Academic', emoji: '📚' },
-  { value: 'Loneliness', label: 'Loneliness', emoji: '😔' },
-  { value: 'Other', label: 'Other', emoji: '💭' },
+  { value: 'anxiety', label: 'Anxiety', emoji: '😰' },
+  { value: 'stress', label: 'Stress', emoji: '😫' },
+  { value: 'sleep', label: 'Sleep Problems', emoji: '😴' },
+  { value: 'academic', label: 'Academic Pressure', emoji: '📚' },
+  { value: 'relationship', label: 'Relationships', emoji: '💔' },
+  { value: 'family', label: 'Family Issues', emoji: '👨‍👩‍👧' },
+  { value: 'health', label: 'Health Concerns', emoji: '🏥' },
+  { value: 'other', label: 'Other', emoji: '💭' },
 ];
 
 // Mood emojis
@@ -47,12 +50,27 @@ interface CrisisResponse {
 interface BookResponse {
   route: 'BOOK';
   counselorFilters: { topic: string };
+  supportRoom?: {
+    id: string;
+    topic: string;
+    urgency: string;
+    routedTo: string;
+    status: string;
+  };
+  message?: string;
   riskFlag: boolean;
 }
 
 interface PeerResponse {
   route: 'PEER';
-  room: string;
+  supportRoom?: {
+    id: string;
+    topic: string;
+    urgency: string;
+    routedTo: string;
+    status: string;
+  };
+  message?: string;
   riskFlag: boolean;
 }
 
@@ -74,7 +92,7 @@ export function Triage() {
     resolver: zodResolver(triageFormSchema),
     defaultValues: {
       moodScore: 3,
-      urgency: 'Low',
+      urgency: 'low',
     },
   });
 
@@ -106,7 +124,7 @@ export function Triage() {
 
   if (!showForm && result) {
     return (
-      <div className="min-h-screen bg-linear-to-br from-blue-50 to-purple-50 p-4 md:p-8 animate-fade-in">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 p-4 md:p-8 animate-fade-in">
         <div className="max-w-2xl mx-auto">
           {result.route === 'CRISIS' && (
             <div className="space-y-6 animate-fade-in-up">
@@ -142,9 +160,19 @@ export function Triage() {
                   <Button
                     variant="default"
                     className="w-full"
-                    onClick={() => {
-                      // In production, this would trigger a callback request
-                      alert('A counselor will contact you within 15 minutes.');
+                    onClick={async () => {
+                      try {
+                        await api.request('/crisis/alert', {
+                          method: 'POST',
+                          body: JSON.stringify({ 
+                            message: `Urgent callback request - Topic: ${selectedTopic || 'Crisis'}, Mood: ${moodScore}/5` 
+                          }),
+                        });
+                        alert('✅ Crisis alert sent! A counselor will contact you within 15 minutes.\n\nIf you need immediate help, please call one of the emergency numbers above.');
+                      } catch (error) {
+                        console.error('Failed to send crisis alert:', error);
+                        alert('Please call the emergency numbers above for immediate help.');
+                      }
                     }}
                   >
                     Request Immediate Callback
@@ -152,7 +180,7 @@ export function Triage() {
                   <Button
                     variant="outline"
                     className="w-full"
-                    onClick={handleTryAgain}
+                    onClick={() => navigate('/student/dashboard')}
                   >
                     Back to Assessment
                   </Button>
@@ -165,29 +193,55 @@ export function Triage() {
             <div className="space-y-6 animate-fade-in-up">
               <Alert className="border-2 border-blue-600 bg-blue-50">
                 <AlertTitle className="text-xl font-bold text-blue-900">
-                  📅 Professional Support Recommended
+                  💬 Professional Support Recommended
                 </AlertTitle>
                 <AlertDescription className="text-blue-900 mt-2">
-                  Based on your responses, we recommend booking a session with a professional counselor.
-                  They can provide personalized support for {result.counselorFilters.topic.toLowerCase()}.
+                  Based on your responses, we're connecting you with a professional counselor for private support.
+                  They can provide specialized help for {result.counselorFilters?.topic?.toLowerCase() || 'your concerns'}.
                 </AlertDescription>
               </Alert>
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Book a Counselor</CardTitle>
+                  <CardTitle>Your Private Counselor Chat</CardTitle>
                   <CardDescription>
-                    Connect with a qualified professional who specializes in your area of concern.
+                    A counselor will join your private support room shortly to provide professional guidance.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <Button
-                    variant="default"
-                    className="w-full"
-                    onClick={() => navigate('/book')}
-                  >
-                    Find a Counselor
-                  </Button>
+                  {result.supportRoom && (
+                    <>
+                      <div className="p-4 bg-gray-50 rounded-lg space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-600">Topic:</span>
+                          <span className="font-medium capitalize">{result.supportRoom.topic}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-600">Urgency:</span>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            result.supportRoom.urgency === 'high' || result.supportRoom.urgency === 'crisis' 
+                              ? 'bg-red-100 text-red-800' 
+                              : result.supportRoom.urgency === 'medium'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : 'bg-blue-100 text-blue-800'
+                          }`}>
+                            {result.supportRoom.urgency.toUpperCase()}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-fg-secondary">Support from:</span>
+                          <span className="font-medium capitalize">{result.supportRoom.routedTo.replace('_', ' ')}</span>
+                        </div>
+                      </div>
+                      <Button
+                        variant="default"
+                        className="w-full"
+                        onClick={() => navigate(`/support/${result.supportRoom!.id}`)}
+                      >
+                        Enter Private Support Room
+                      </Button>
+                    </>
+                  )}
                   <Button
                     variant="outline"
                     className="w-full"
@@ -204,38 +258,62 @@ export function Triage() {
             <div className="space-y-6 animate-fade-in-up">
               <Alert className="border-2 border-purple-600 bg-purple-50">
                 <AlertTitle className="text-xl font-bold text-purple-900">
-                  💬 Peer Support Available
+                  💬 Private Support Connected
                 </AlertTitle>
                 <AlertDescription className="text-purple-900 mt-2">
-                  You might find it helpful to connect with others who understand what you're going through.
-                  Join a peer support room for shared experiences and mutual support.
+                  {result.message || 'We\'re connecting you with a trained supporter for a private, one-on-one conversation.'}
                 </AlertDescription>
               </Alert>
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Join Peer Support</CardTitle>
+                  <CardTitle>Your Private Support Room</CardTitle>
                   <CardDescription>
-                    Connect with others in a safe, moderated environment: {result.room}
+                    {result.supportRoom ? (
+                      <>
+                        A confidential space to discuss <strong>{result.supportRoom.topic.charAt(0).toUpperCase() + result.supportRoom.topic.slice(1)}</strong> with a {result.supportRoom.routedTo.replace('_', ' ')}.
+                      </>
+                    ) : (
+                      'A safe, private space for one-on-one support.'
+                    )}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <Button
-                    variant="default"
-                    className="w-full"
-                    onClick={() => navigate(`/rooms/${result.room}`)}
-                  >
-                    Join {result.room.replace('-', ' ').toUpperCase()}
-                  </Button>
+                  {result.supportRoom && (
+                    <>
+                      <div className="p-4 bg-gray-50 rounded-lg space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-600">Topic:</span>
+                          <span className="font-medium capitalize">{result.supportRoom.topic}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-600">Urgency:</span>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            result.supportRoom.urgency === 'high' || result.supportRoom.urgency === 'crisis' 
+                              ? 'bg-red-100 text-red-800' 
+                              : result.supportRoom.urgency === 'medium'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : 'bg-blue-100 text-blue-800'
+                          }`}>
+                            {result.supportRoom.urgency.toUpperCase()}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-fg-secondary">Routed to:</span>
+                          <span className="font-medium capitalize">{result.supportRoom.routedTo.replace('_', ' ')}</span>
+                        </div>
+                      </div>
+                      <Button
+                        variant="default"
+                        className="w-full"
+                        onClick={() => navigate(`/support/${result.supportRoom!.id}`)}
+                      >
+                        Enter Private Support Room
+                      </Button>
+                    </>
+                  )}
                   <Button
                     variant="outline"
-                    className="w-full"
-                    onClick={() => navigate('/book')}
-                  >
-                    Book a Counselor Instead
-                  </Button>
-                  <Button
-                    variant="ghost"
                     className="w-full"
                     onClick={handleTryAgain}
                   >
@@ -243,6 +321,19 @@ export function Triage() {
                   </Button>
                 </CardContent>
               </Card>
+
+              {/* Privacy Notice */}
+              <Alert className="border-purple-200 bg-purple-50">
+                <AlertTitle className="text-purple-900">🔒 Your Privacy Matters</AlertTitle>
+                <AlertDescription className="text-purple-800">
+                  <ul className="list-disc list-inside space-y-1 mt-2 text-sm">
+                    <li>This is a completely private 1-on-1 conversation</li>
+                    <li>Only you and your assigned supporter can see your messages</li>
+                    <li>No other students can access or view your chat</li>
+                    <li>All conversations are confidential</li>
+                  </ul>
+                </AlertDescription>
+              </Alert>
             </div>
           )}
         </div>
@@ -251,15 +342,15 @@ export function Triage() {
   }
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-blue-50 to-purple-50 p-4 md:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 p-4 md:p-8">
       <div className="max-w-2xl mx-auto">
         <Card className="animate-fade-in-up">
           <CardHeader>
             <CardTitle className="text-3xl">Wellbeing Check-In</CardTitle>
             <CardDescription>
-              Take a moment to share how you're feeling. This helps us guide you to the right support.
+              Tell us what's on your mind, and we'll connect you with the right support — whether that's a private chat with a peer supporter, booking a counselor, or accessing crisis resources.
               <br />
-              <span className="text-sm text-gray-500">⏱️ Takes about 60 seconds</span>
+              <span className="text-sm text-fg-muted">⏱️ Takes about 60 seconds • 🔒 Completely confidential</span>
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -272,7 +363,7 @@ export function Triage() {
                 <RadioGroup
                   value={selectedTopic}
                   onValueChange={(value) => setValue('topic', value)}
-                  className="grid grid-cols-2 md:grid-cols-3 gap-3"
+                  className="grid grid-cols-2 md:grid-cols-4 gap-3"
                 >
                   {TOPICS.map((topic) => (
                     <div key={topic.value}>
@@ -281,7 +372,7 @@ export function Triage() {
                         className={`flex flex-col items-center justify-center p-4 border-2 rounded-lg cursor-pointer transition-all hover:shadow-md ${
                           selectedTopic === topic.value
                             ? 'border-primary bg-primary/10 shadow-md'
-                            : 'border-gray-200 bg-white'
+                            : 'border-light bg-white'
                         }`}
                       >
                         <RadioGroupItem
@@ -327,7 +418,7 @@ export function Triage() {
                     value={[moodScore || 3]}
                     onValueChange={(value) => setValue('moodScore', value[0])}
                   />
-                  <div className="flex justify-between text-xs text-gray-500 mt-2">
+                  <div className="flex justify-between text-xs text-fg-muted mt-2">
                     <span>Very Low</span>
                     <span>Very Good</span>
                   </div>
@@ -341,25 +432,29 @@ export function Triage() {
                 </Label>
                 <RadioGroup
                   value={urgency}
-                  onValueChange={(value) => setValue('urgency', value as 'Low' | 'Medium' | 'High')}
+                  onValueChange={(value) => setValue('urgency', value as 'low' | 'medium' | 'high')}
                   className="grid grid-cols-3 gap-3"
                 >
-                  {['Low', 'Medium', 'High'].map((level) => (
-                    <div key={level}>
+                  {[
+                    { value: 'low', label: 'Low' },
+                    { value: 'medium', label: 'Medium' },
+                    { value: 'high', label: 'High' }
+                  ].map((level) => (
+                    <div key={level.value}>
                       <label
-                        htmlFor={`urgency-${level}`}
+                        htmlFor={`urgency-${level.value}`}
                         className={`flex items-center justify-center p-3 border-2 rounded-lg cursor-pointer transition-all hover:shadow-md ${
-                          urgency === level
+                          urgency === level.value
                             ? 'border-primary bg-primary/10 shadow-md'
-                            : 'border-gray-200 bg-white'
+                            : 'border-light bg-white'
                         }`}
                       >
                         <RadioGroupItem
-                          value={level}
-                          id={`urgency-${level}`}
+                          value={level.value}
+                          id={`urgency-${level.value}`}
                           className="sr-only"
                         />
-                        <span className="text-sm font-medium">{level}</span>
+                        <span className="text-sm font-medium">{level.label}</span>
                       </label>
                     </div>
                   ))}
@@ -380,7 +475,7 @@ export function Triage() {
                   rows={4}
                   className="resize-none"
                 />
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-fg-muted">
                   This information helps us provide better support. It's completely confidential.
                 </p>
               </div>
@@ -422,7 +517,7 @@ export function Triage() {
         </Card>
 
         {/* Info footer */}
-        <div className="mt-6 text-center text-sm text-gray-600">
+        <div className="mt-6 text-center text-sm text-fg-secondary">
           <p>🔒 Your privacy matters. All information is kept confidential.</p>
         </div>
       </div>

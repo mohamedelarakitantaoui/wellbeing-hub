@@ -48,7 +48,7 @@ export default function RoomPage() {
 
   // Create a single persistent socket instance
   const socket = useMemo(() => {
-    const token = localStorage.getItem('auth_token');
+    const token = sessionStorage.getItem('auth_token');
     if (!token) return null;
     
     const socketInstance = io(SOCKET_URL, {
@@ -79,7 +79,7 @@ export default function RoomPage() {
 
         // Fetch room metadata
         const roomData = await api.getRoom(slug);
-        setRoom(roomData);
+        setRoom(roomData.room);
 
         // Fetch initial messages (last 50)
         const messagesData = await api.getRoomMessages(slug, { limit: 50 });

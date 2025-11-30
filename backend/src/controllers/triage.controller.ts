@@ -6,8 +6,8 @@ import { detectRisk } from '../lib/riskDetection';
 
 const triageSchema = z.object({
   topic: z.string().min(1),
-  moodScore: z.number().min(1).max(5),
-  urgency: z.enum(['Low', 'Medium', 'High']),
+  moodScore: z.number().min(1).max(10),
+  urgency: z.enum(['low', 'medium', 'high', 'crisis']),
   message: z.string().optional(),
 });
 
@@ -15,43 +15,86 @@ export const createTriage = async (req: AuthRequest, res: Response): Promise<voi
   try {
     const validatedData = triageSchema.parse(req.body);
 
-    // Detect risk based on message content
+    // Detect risk based on message content, mood score, and urgency
     const riskFlag = validatedData.message
       ? detectRisk(validatedData.message)
       : false;
+    
+    const lowMoodRisk = validatedData.moodScore < 3;
+    const isHighRisk = riskFlag || lowMoodRisk || validatedData.urgency === 'crisis';
 
     // Determine routing based on risk, urgency, and mood
     let route: 'CRISIS' | 'BOOK' | 'PEER';
+    let urgencyLevel: 'low' | 'medium' | 'high' | 'crisis';
     
-    if (riskFlag) {
+    if (isHighRisk) {
       route = 'CRISIS';
-    } else if (validatedData.urgency === 'High') {
+      urgencyLevel = 'crisis';
+    } else if (validatedData.urgency === 'high') {
       route = 'BOOK';
+      urgencyLevel = 'high';
+    } else if (validatedData.urgency === 'medium') {
+      route = 'PEER';
+      urgencyLevel = 'medium';
     } else {
       route = 'PEER';
+      urgencyLevel = 'low';
     }
 
     // Save triage form
     const triageForm = await prisma.triageForm.create({
       data: {
-        userId: req.user!.id,
+        userId: req.user!.sub,
         topic: validatedData.topic,
         moodScore: validatedData.moodScore,
-        urgency: validatedData.urgency,
+        urgency: urgencyLevel,
         message: validatedData.message,
-        riskFlag,
+        riskFlag: isHighRisk,
         route,
       },
     });
 
     // If high risk, create a crisis alert
-    if (riskFlag) {
+    if (isHighRisk) {
       await prisma.crisisAlert.create({
         data: {
-          userId: req.user!.id,
+          userId: req.user!.sub,
           message: validatedData.message || `High-risk triage detected: ${validatedData.topic}`,
         },
       });
+    }
+
+    // Create private support room for PEER and BOOK routes
+    let supportRoom = null;
+    if (route === 'PEER' || route === 'BOOK') {
+      // Determine routing for support room
+      const routedTo = route === 'BOOK' || urgencyLevel === 'high' || ['anxiety', 'health', 'family'].includes(validatedData.topic.toLowerCase())
+        ? 'counselor'
+        : 'peer_supporter';
+
+      supportRoom = await prisma.supportRoom.create({
+        data: {
+          studentId: req.user!.sub,
+          topic: validatedData.topic.toLowerCase(),
+          urgency: urgencyLevel,
+          routedTo,
+          initialMessage: validatedData.message,
+          status: 'WAITING',
+        },
+      });
+
+      // Create initial message if provided
+      if (validatedData.message) {
+        await prisma.supportMessage.create({
+          data: {
+            roomId: supportRoom.id,
+            senderId: req.user!.sub,
+            content: validatedData.message,
+          },
+        });
+      }
+
+      console.log(`✅ Support room created: ${supportRoom.id} for triage ${triageForm.id}`);
     }
 
     // Build response based on route
@@ -67,17 +110,32 @@ export const createTriage = async (req: AuthRequest, res: Response): Promise<voi
         numbers: ['141', '112'],
         bannerText: 'If you feel unsafe, please call now.',
       };
-    } else if (route === 'BOOK') {
+    } else if (route === 'BOOK' && supportRoom) {
       response = {
         ...response,
         counselorFilters: {
           topic: validatedData.topic,
         },
+        supportRoom: {
+          id: supportRoom.id,
+          topic: supportRoom.topic,
+          urgency: supportRoom.urgency,
+          routedTo: supportRoom.routedTo,
+          status: supportRoom.status,
+        },
+        message: `Connecting you with a professional counselor...`,
       };
-    } else if (route === 'PEER') {
+    } else if (route === 'PEER' && supportRoom) {
       response = {
         ...response,
-        room: `${validatedData.topic.toLowerCase()}-support`,
+        supportRoom: {
+          id: supportRoom.id,
+          topic: supportRoom.topic,
+          urgency: supportRoom.urgency,
+          routedTo: supportRoom.routedTo,
+          status: supportRoom.status,
+        },
+        message: `Connecting you with a ${supportRoom.routedTo.replace('_', ' ')}...`,
       };
     }
 
@@ -95,7 +153,7 @@ export const createTriage = async (req: AuthRequest, res: Response): Promise<voi
 export const getMyTriages = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const triages = await prisma.triageForm.findMany({
-      where: { userId: req.user!.id },
+      where: { userId: req.user!.sub },
       orderBy: { createdAt: 'desc' },
       take: 20,
     });

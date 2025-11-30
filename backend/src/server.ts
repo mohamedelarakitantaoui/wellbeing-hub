@@ -2,6 +2,7 @@ import dotenv from 'dotenv';
 import http from 'http';
 import { createApp } from './app';
 import { initializeSocket } from './sockets';
+import { initializeDefaultSettings } from './controllers/settings.controller';
 // Temporarily disabled Redis worker
 // import crisisAlertWorker from './workers/crisisAlert.worker';
 
@@ -18,6 +19,13 @@ const httpServer = http.createServer(app);
 
 // Initialize Socket.IO
 const io = initializeSocket(httpServer);
+
+// Initialize default settings
+initializeDefaultSettings().then(() => {
+  console.log('✅ Default settings initialized');
+}).catch((err) => {
+  console.error('❌ Failed to initialize default settings:', err);
+});
 
 // Start server
 httpServer.listen(PORT, () => {

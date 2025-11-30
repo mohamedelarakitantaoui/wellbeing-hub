@@ -16,19 +16,29 @@ model User {
   password       String
   name           String?
   displayName    String?
-  role           String   // 'student', 'counselor', 'moderator', 'admin'
-  ageBracket     String?
+  role           String   // 'student', 'counselor', 'moderator', 'admin', 'intern', 'staff', 'faculty'
+  ageBracket     String?  // 'UNDER18' or 'ADULT'
   consentMinorOk Boolean  @default(false)
+  
+  // OAuth fields
+  oauthProvider    String?  // 'google', 'microsoft', or null for regular users
+  oauthProviderId  String?  // The user's ID from the OAuth provider
+  profilePicture   String?  // Profile picture URL from OAuth provider
+  
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   // Relations
-  triageForms         TriageForm[]
-  bookingsAsStudent   Booking[]      @relation("StudentBookings")
-  bookingsAsCounselor Booking[]      @relation("CounselorBookings")
-  peerMessages        PeerMessage[]
-  crisisAlerts        CrisisAlert[]
-  auditLogs           AuditLog[]
+  triageForms              TriageForm[]
+  bookingsAsStudent        Booking[]        @relation("StudentBookings")
+  bookingsAsCounselor      Booking[]        @relation("CounselorBookings")
+  crisisAlerts             CrisisAlert[]
+  auditLogs                AuditLog[]
+  peerMessages             PeerMessage[]
+  supportRoomsAsStudent    SupportRoom[]    @relation("SupportRoomStudent")
+  supportRoomsAsSupporter  SupportRoom[]    @relation("SupportRoomSupporter")
+  supportMessages          SupportMessage[]
+  activityLogs             ActivityLog[]    @relation("UserActivityLogs")
 }
 
 model TriageForm {
@@ -70,24 +80,23 @@ model Booking {
 model PeerRoom {
   id          String        @id @default(cuid())
   slug        String        @unique
-  title       String
-  topic       String
-  isMinorSafe Boolean       @default(false) // stricter moderation
+  title       String        // Peer room title
+  topic       String        // Peer room topic
+  isMinorSafe Boolean       @default(false)
   createdAt   DateTime      @default(now())
   messages    PeerMessage[]
 }
 
 model PeerMessage {
-  id        String   @id @default(cuid())
-  roomId    String
-  authorId  String
-  body      String
-  flagged   Boolean  @default(false)
-  flags     String   @default("[]") // JSON array of flag reasons
-  createdAt DateTime @default(now())
-
-  room PeerRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  user User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  id          String   @id @default(cuid())
+  roomId      String
+  room        PeerRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  authorId    String   // User who sent the message
+  author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  body        String   // Message content
+  flagged     Boolean  @default(false)
+  flags       String   @default("[]") // JSON array of flags
+  createdAt   DateTime @default(now())
 
   @@index([roomId])
   @@index([authorId])
@@ -96,13 +105,15 @@ model PeerMessage {
 
 model CrisisAlert {
   id        String   @id @default(cuid())
-  userId    String
+  userId    String?  // Nullable for guest users
   message   String
+  source    String   @default("general") // 'chat', 'triage', 'general'
+  roomSlug  String?  // Room slug if triggered from chat
   status    String   @default("PENDING") // 'PENDING', 'ACKNOWLEDGED', 'RESOLVED'
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([status])
@@ -111,7 +122,10 @@ model CrisisAlert {
 model AuditLog {
   id        String   @id @default(cuid())
   actorId   String?
-  action    String
+  role      String?  // Actor's role at time of action
+  roomId    String?  // For room-related events
+  eventType String   // USER_JOIN_ROOM, USER_LEAVE_ROOM, MESSAGE_SENT, MESSAGE_FLAGGED, CRISIS_TRIGGERED_FROM_ROOM
+  action    String   // Legacy field, kept for compatibility
   metadata  String?
   createdAt DateTime @default(now())
 
@@ -119,4 +133,202 @@ model AuditLog {
 
   @@index([actorId])
   @@index([action])
+  @@index([eventType])
+  @@index([roomId])
+}
+
+// Private 1-on-1 Support Room System
+model SupportRoom {
+  id          String   @id @default(cuid())
+  
+  // Participants (ONLY 2 people - student and supporter)
+  studentId   String
+  supporterId String?  // Nullable until a supporter claims the room
+  
+  // Room metadata
+  topic       String   // 'stress', 'sleep', 'anxiety', 'academic', 'relationship', etc.
+  urgency     String   // 'low', 'medium', 'high', 'crisis'
+  status      String   @default("WAITING") // 'WAITING', 'ACTIVE', 'RESOLVED', 'CLOSED'
+  
+  // Routing information
+  routedTo    String   // 'counselor', 'peer_supporter'
+  
+  // Privacy and metadata
+  isPrivate   Boolean  @default(true)  // Always true for support rooms
+  initialMessage String? // Student's initial request message
+  
+  // Last message tracking (for conversation list preview)
+  lastMessageAt DateTime? // Timestamp of last message
+  lastMessagePreview String? // Preview of last message (first 100 chars)
+  
+  // Archive and delete
+  isArchivedForStudent Boolean @default(false)
+  isArchivedForSupporter Boolean @default(false)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  claimedAt   DateTime? // When supporter claimed the room
+  closedAt    DateTime?
+  
+  // Relations
+  student    User             @relation("SupportRoomStudent", fields: [studentId], references: [id], onDelete: Cascade)
+  supporter  User?            @relation("SupportRoomSupporter", fields: [supporterId], references: [id], onDelete: SetNull)
+  messages   SupportMessage[]
+  
+  @@index([studentId])
+  @@index([supporterId])
+  @@index([status])
+  @@index([topic])
+  @@index([urgency])
+  @@index([routedTo])
+  @@index([lastMessageAt])
+}
+
+model SupportMessage {
+  id          String   @id @default(cuid())
+  roomId      String
+  senderId    String   // Who sent the message (student or supporter)
+  content     String
+  type        String   @default("text") // 'text', 'system', 'emoji'
+  
+  // Message status and delivery
+  status      String   @default("sent") // 'sending', 'sent', 'delivered', 'read'
+  isRead      Boolean  @default(false)
+  readAt      DateTime? // When the message was read
+  
+  // Edit tracking
+  isEdited    Boolean  @default(false)
+  editedAt    DateTime?
+  
+  // Moderation and soft delete
+  flagged     Boolean  @default(false)
+  isDeleted   Boolean  @default(false) // Soft delete
+  deletedAt   DateTime?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  room   SupportRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  sender User        @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  
+  @@index([roomId])
+  @@index([senderId])
+  @@index([createdAt])
+  @@index([isDeleted])
+}
+
+model PeerApplication {
+  id                  String   @id @default(cuid())
+  
+  // Applicant Information
+  fullName            String
+  auiEmail            String   @unique
+  school              String
+  major               String
+  yearOfStudy         String
+  phoneNumber         String
+  
+  // Application Details
+  motivation          String   // Why they want to become a peer supporter
+  experience          String   // Prior experience
+  availability        String   // Hours per week
+  communicationStyle  String   // 'empathetic', 'structured', 'active-listening'
+  
+  // Application Status
+  status              String   @default("PENDING") // 'PENDING', 'APPROVED', 'REJECTED'
+  activationToken     String?  @unique // Token for account activation
+  tokenExpiresAt      DateTime? // Token expiration
+  
+  // Admin Review
+  reviewedBy          String?  // Admin user ID who reviewed
+  reviewedAt          DateTime?
+  rejectionReason     String?  // Optional reason for rejection
+  
+  // Metadata
+  studentIdFileUrl    String?  // Optional uploaded student ID
+  agreedToTerms       Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  
+  @@index([status])
+  @@index([auiEmail])
+  @@index([activationToken])
+}
+
+model PeerTutor {
+  id                  String   @id @default(cuid())
+  
+  // Personal Information
+  fullName            String
+  email               String   @unique
+  school              String
+  major               String
+  year                String   // Year of study
+  phone               String
+  
+  // Professional Details
+  experience          String   // Prior experience description
+  availability        String   // Hours per week
+  communicationStyle  String   // 'empathetic', 'structured', 'active-listening'
+  
+  // Account Status
+  status              String   @default("pending") // 'pending', 'approved', 'rejected'
+  passwordHash        String?  // Nullable until account activation
+  
+  // Timestamps
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  
+  @@index([email])
+  @@index([status])
+}
+
+model ActivityLog {
+  id          String   @id @default(cuid())
+  userId      String?
+  user        User?    @relation("UserActivityLogs", fields: [userId], references: [id], onDelete: SetNull)
+  action      String   // 'LOGIN', 'APPROVE_APPLICATION', 'REJECT_APPLICATION', 'DELETE_USER', 'UPDATE_SETTINGS', 'CRISIS_FLAG_ACTION', etc.
+  entity      String?  // 'User', 'PeerApplication', 'Settings', 'CrisisAlert', etc.
+  entityId    String?  // ID of the affected entity
+  ipAddress   String?
+  userAgent   String?
+  metadata    String?  // JSON string for additional data
+  createdAt   DateTime @default(now())
+  
+  @@index([userId])
+  @@index([action])
+  @@index([entity])
+  @@index([createdAt])
+}
+
+model PlatformSettings {
+  id                      String   @id @default(cuid())
+  key                     String   @unique
+  value                   String   // JSON string for complex values
+  category                String   // 'GENERAL', 'SUPPORT', 'PLATFORM', 'EMAILS', 'SECURITY'
+  description             String?
+  updatedBy               String?
+  updatedAt               DateTime @updatedAt
+  createdAt               DateTime @default(now())
+  
+  @@index([category])
+  @@index([key])
+}
+
+model SystemAlert {
+  id          String   @id @default(cuid())
+  type        String   // 'CRISIS', 'HIGH_WAIT_TIME', 'PEAK_USAGE', 'SYSTEM_HEALTH', 'SECURITY'
+  severity    String   // 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL'
+  title       String
+  message     String
+  isRead      Boolean  @default(false)
+  readBy      String?
+  readAt      DateTime?
+  metadata    String?  // JSON string
+  createdAt   DateTime @default(now())
+  
+  @@index([isRead])
+  @@index([type])
+  @@index([severity])
+  @@index([createdAt])
 }

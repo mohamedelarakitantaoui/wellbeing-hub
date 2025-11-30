@@ -1,16 +1,20 @@
 import express, { Application } from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import passport from 'passport';
 import { errorHandler } from './middleware/error';
+import { setupGoogleStrategy } from './lib/google.strategy';
+import { setupMicrosoftStrategy } from './lib/microsoft.strategy';
 
 // Routes
 import authRoutes from './routes/auth.routes';
 import triageRoutes from './routes/triage.routes';
+import supportRoutes from './routes/support.routes';
 import bookingRoutes from './routes/booking.routes';
-// import roomRoutes from './routes/room.routes'; // OLD - Replaced by peerRoom routes
-import peerRoomRoutes from './routes/peerRoom.routes';
-import crisisRoutes from './routes/crisis.routes';
+import peerApplicationRoutes from './routes/peerApplication.routes';
+import userRoutes from './routes/user.routes';
 import adminRoutes from './routes/admin.routes';
+import crisisRoutes from './routes/crisis.routes';
 
 export const createApp = (): Application => {
   const app = express();
@@ -27,19 +31,27 @@ export const createApp = (): Application => {
   app.use(express.urlencoded({ extended: true }));
   app.use(cookieParser());
 
+  // Initialize Passport for OAuth
+  app.use(passport.initialize());
+  
+  // Setup OAuth strategies
+  setupGoogleStrategy();
+  setupMicrosoftStrategy();
+
   // Health check
-  app.get('/health', (req, res) => {
+  app.get('/health', (_req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
   });
 
   // API Routes
   app.use('/api/auth', authRoutes);
   app.use('/api/triage', triageRoutes);
-  app.use('/api/bookings', bookingRoutes);
-  // app.use('/api/rooms', roomRoutes); // OLD - Replaced by peerRoom routes
-  app.use('/api', peerRoomRoutes); // Peer room routes (already include /rooms prefix)
-  app.use('/api/crisis', crisisRoutes);
-  app.use('/api/admin', adminRoutes);
+  app.use('/api/support', supportRoutes); // Private 1-on-1 support rooms
+  app.use('/api/bookings', bookingRoutes); // Counseling bookings
+  app.use('/api/peer-applications', peerApplicationRoutes); // Peer tutor applications
+  app.use('/api/user', userRoutes); // User profile and settings
+  app.use('/api/admin', adminRoutes); // Admin endpoints
+  app.use('/api/crisis', crisisRoutes); // Crisis alerts and callbacks
 
   // Error handler
   app.use(errorHandler);

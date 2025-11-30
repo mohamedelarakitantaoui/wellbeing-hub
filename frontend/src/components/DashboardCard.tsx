@@ -1,8 +1,12 @@
-import type { LucideIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
+/**
+ * 🎨 AUI Dashboard Card
+ * Redesigned with organic shapes, soft shadows, and AUI color palette
+ */
+
 interface DashboardCardProps {
-  icon: LucideIcon;
+  icon: React.ElementType;
   title: string;
   description: string;
   to: string;
@@ -19,33 +23,34 @@ export function DashboardCard({
   badge 
 }: DashboardCardProps) {
   return (
-    <div className="group bg-white rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1 border border-gray-100">
-      <div className="flex items-start justify-between mb-4">
-        <div className="p-3 bg-primary/10 rounded-xl group-hover:bg-primary/20 transition-colors">
-          <Icon className="w-6 h-6 text-primary" />
+    <div className="group bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 border border-primary-100/50 hover:border-primary-400">
+      <div className="flex items-start justify-between mb-6">
+        <div className="p-4 bg-gradient-to-br from-primary-50 to-primary-100 rounded-2xl group-hover:from-primary-100 group-hover:to-primary-200 transition-all duration-500 group-hover:scale-110 group-hover:rotate-3">
+          <Icon className="w-8 h-8 text-primary-700" strokeWidth={2.5} />
         </div>
         {badge !== undefined && badge > 0 && (
-          <span className="bg-accent text-white text-xs font-semibold px-2.5 py-1 rounded-full">
+          <span className="bg-accent-coral text-white text-xs font-bold px-3.5 py-1.5 rounded-full shadow-md animate-pulse">
             {badge}
           </span>
         )}
       </div>
       
-      <h3 className="text-lg font-semibold text-text mb-2">{title}</h3>
-      <p className="text-gray-600 text-sm mb-4 leading-relaxed">{description}</p>
+      <h3 className="text-2xl font-bold text-primary-700 mb-3 group-hover:text-secondary-teal transition-colors duration-300">{title}</h3>
+      <p className="text-text-secondary text-base mb-8 leading-relaxed">{description}</p>
       
       <Link
         to={to}
-        className="inline-flex items-center text-primary font-medium text-sm hover:text-primary/80 transition-colors"
+        className="inline-flex items-center gap-2 text-primary-700 font-semibold text-base hover:text-secondary-teal transition-all duration-300 group-hover:gap-4"
       >
         {buttonText}
         <svg 
-          className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" 
+          className="w-5 h-5 transition-transform duration-300 group-hover:translate-x-1" 
           fill="none" 
           stroke="currentColor" 
           viewBox="0 0 24 24"
+          strokeWidth={2.5}
         >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
         </svg>
       </Link>
     </div>

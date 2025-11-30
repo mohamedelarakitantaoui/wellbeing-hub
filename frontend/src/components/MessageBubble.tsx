@@ -1,6 +1,5 @@
 import { formatDistanceToNow } from 'date-fns';
-import { Alert, AlertDescription } from './ui/alert';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Check, CheckCheck } from 'lucide-react';
 
 interface MessageBubbleProps {
   author: {
@@ -9,49 +8,78 @@ interface MessageBubbleProps {
   };
   body: string;
   timestamp: string | Date;
-  flagged: boolean;
+  flagged?: boolean;
   isCurrentUser?: boolean;
+  isSeen?: boolean;
 }
 
+/**
+ * 💬 Enhanced Message Bubble - BetterHelp Style
+ * Clean, modern message bubbles with smooth animations
+ */
 export function MessageBubble({ 
   author, 
   body, 
   timestamp, 
-  flagged, 
-  isCurrentUser 
+  flagged = false, 
+  isCurrentUser = false,
+  isSeen = false
 }: MessageBubbleProps) {
   const timeAgo = formatDistanceToNow(new Date(timestamp), { addSuffix: true });
 
   return (
-    <div className={`mb-4 ${isCurrentUser ? 'flex justify-end' : 'flex justify-start'}`}>
-      <div className={`max-w-[70%] ${isCurrentUser ? 'items-end' : 'items-start'}`}>
+    <div 
+      className={`mb-3 ${isCurrentUser ? 'flex justify-end' : 'flex justify-start'} animate-slide-up`}
+    >
+      <div className={`max-w-[75%] md:max-w-[65%] ${isCurrentUser ? 'items-end' : 'items-start'}`}>
+        {/* Sender name (for other users) */}
         {!isCurrentUser && (
-          <div className="text-sm font-medium text-gray-700 mb-1">
+          <div className="text-xs font-semibold text-primary mb-1.5 px-3">
             {author.displayName}
           </div>
         )}
         
+        {/* Message bubble */}
         <div
-          className={`rounded-lg px-4 py-2 ${
-            isCurrentUser
-              ? 'bg-[#003B5C] text-white'
-              : 'bg-gray-200 text-gray-900'
-          } ${flagged ? 'border-2 border-red-500' : ''}`}
+          className={`
+            rounded-3xl px-5 py-3 shadow-sm transition-all duration-200
+            ${isCurrentUser
+              ? 'bg-primary text-white rounded-br-md'
+              : 'bg-white text-fg border border-border-light rounded-bl-md'
+            }
+            ${flagged ? 'ring-2 ring-accent-error' : ''}
+            hover:shadow-md
+          `}
         >
-          <p className="text-sm whitespace-pre-wrap break-words">{body}</p>
+          <p className="text-[15px] leading-relaxed whitespace-pre-wrap wrap-break-word">
+            {body}
+          </p>
         </div>
 
-        <div className="text-xs text-gray-500 mt-1 flex items-center">
-          <span>{timeAgo}</span>
+        {/* Timestamp and status indicators */}
+        <div className={`flex items-center gap-1.5 mt-1.5 px-3 ${isCurrentUser ? 'justify-end' : 'justify-start'}`}>
+          <span className="text-xs text-fg-muted">{timeAgo}</span>
+          
+          {/* Seen/Delivered indicator for current user */}
+          {isCurrentUser && (
+            <div className="text-fg-muted">
+              {isSeen ? (
+                <CheckCheck className="w-3.5 h-3.5 text-primary" />
+              ) : (
+                <Check className="w-3.5 h-3.5" />
+              )}
+            </div>
+          )}
         </div>
 
+        {/* Flagged warning */}
         {flagged && (
-          <Alert variant="destructive" className="mt-2 border-red-500 bg-red-50">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertDescription className="text-xs">
+          <div className="mt-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+            <AlertTriangle className="h-4 w-4 text-accent-error shrink-0 mt-0.5" />
+            <p className="text-xs text-red-800 font-medium">
               This message is under review by moderators
-            </AlertDescription>
-          </Alert>
+            </p>
+          </div>
         )}
       </div>
     </div>

@@ -1,7 +1,5 @@
-import type { LucideIcon } from 'lucide-react';
-
 interface FeatureCardProps {
-  icon: LucideIcon;
+  icon: React.ElementType;
   title: string;
   description: string;
   index?: number;
@@ -10,32 +8,32 @@ interface FeatureCardProps {
 export default function FeatureCard({ icon: Icon, title, description, index = 0 }: FeatureCardProps) {
   return (
     <div 
-      className="group bg-white rounded-2xl p-8 border-2 border-[#E8F3F1] hover:border-[#004B36] shadow-md hover:shadow-2xl transform hover:-translate-y-2 transition-all duration-300"
+      className="group bg-white rounded-3xl p-8 border border-primary-100/60 hover:border-primary-500 shadow-lg hover:shadow-2xl transform hover:-translate-y-2 transition-all duration-500"
       style={{ 
-        animationDelay: `${index * 0.1}s`,
-        animation: 'fade-in-up 0.6s ease-out forwards'
+        animationDelay: `${index * 0.15}s`,
+        animation: 'fade-in-up 0.7s ease-out forwards'
       }}
     >
-      {/* Icon Container */}
-      <div className="w-16 h-16 bg-gradient-to-br from-[#004B36] to-[#007B8A] rounded-xl flex items-center justify-center mb-6 shadow-lg group-hover:scale-110 group-hover:shadow-xl transition-all duration-300">
-        <Icon className="h-8 w-8 text-white" strokeWidth={2} />
+      {/* Icon Container - AUI Green Gradient */}
+      <div className="w-20 h-20 bg-gradient-to-br from-primary-700 to-secondary-teal rounded-2xl flex items-center justify-center mb-6 shadow-lg group-hover:scale-110 group-hover:shadow-xl group-hover:rotate-3 transition-all duration-500">
+        <Icon className="h-10 w-10 text-white" strokeWidth={2.5} />
       </div>
 
       {/* Title */}
-      <h3 className="text-2xl font-bold text-[#004B36] mb-3 group-hover:text-[#007B8A] transition-colors duration-300">
+      <h3 className="text-2xl font-bold text-primary-700 mb-4 group-hover:text-secondary-teal transition-colors duration-300">
         {title}
       </h3>
 
       {/* Description */}
-      <p className="text-gray-600 leading-relaxed">
+      <p className="text-text-secondary leading-relaxed text-base">
         {description}
       </p>
 
       {/* Hover Indicator */}
-      <div className="mt-6 flex items-center gap-2 text-[#007B8A] opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+      <div className="mt-6 flex items-center gap-2 text-secondary-teal opacity-0 group-hover:opacity-100 transition-all duration-300">
         <span className="text-sm font-semibold">Explore</span>
         <svg className="w-4 h-4 transform group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
         </svg>
       </div>
     </div>

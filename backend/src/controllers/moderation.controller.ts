@@ -43,7 +43,7 @@ export async function moderateMessage(req: AuthRequest, res: Response) {
     const message = await prisma.peerMessage.findUnique({
       where: { id: messageId },
       include: {
-        user: {
+        author: {
           select: {
             id: true,
             email: true,
@@ -76,8 +76,10 @@ export async function moderateMessage(req: AuthRequest, res: Response) {
 
         await prisma.auditLog.create({
           data: {
-            actorId: moderator.id,
+            actorId: moderator.id!,
             action: 'MESSAGE_APPROVED',
+            eventType: 'MESSAGE_FLAGGED',
+            roomId: room.id,
             metadata: JSON.stringify({
               messageId,
               roomSlug: slug,
@@ -98,8 +100,10 @@ export async function moderateMessage(req: AuthRequest, res: Response) {
 
         await prisma.auditLog.create({
           data: {
-            actorId: moderator.id,
+            actorId: moderator.id!,
             action: 'MESSAGE_REMOVED',
+            eventType: 'MESSAGE_FLAGGED',
+            roomId: room.id,
             metadata: JSON.stringify({
               messageId,
               roomSlug: slug,
@@ -116,11 +120,13 @@ export async function moderateMessage(req: AuthRequest, res: Response) {
         // For now, just log it. In a real app, you'd update user status
         await prisma.auditLog.create({
           data: {
-            actorId: moderator.id,
+            actorId: moderator.id!,
             action: 'USER_MUTED',
+            eventType: 'MESSAGE_FLAGGED',
+            roomId: room.id,
             metadata: JSON.stringify({
               userId: message.authorId,
-              userEmail: message.user.email,
+              userEmail: message.author?.email,
               roomSlug: slug,
               roomTitle: room.title,
               messageId,
@@ -130,7 +136,7 @@ export async function moderateMessage(req: AuthRequest, res: Response) {
         });
 
         // Could add a "mutedUntil" field to User model in future
-        console.warn(`⚠️  User ${message.user.email} muted by ${moderator.id}`);
+        console.warn(`⚠️  User ${message.author?.email} muted by ${moderator.id}`);
 
         return res.json({ 
           message: 'User muted (note: muting not fully implemented yet - logged only)' 
@@ -168,7 +174,7 @@ export async function getFlaggedMessages(req: AuthRequest, res: Response) {
             title: true,
           },
         },
-        user: {
+        author: {
           select: {
             id: true,
             email: true,

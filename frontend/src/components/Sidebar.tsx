@@ -3,12 +3,12 @@ import { Link, useLocation } from 'react-router-dom';
 import { 
   Home, 
   Heart, 
-  Calendar, 
-  Users, 
-  AlertCircle, 
-  LayoutDashboard,
+  MessageCircle,
+  Users,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Shield,
+  Settings
 } from 'lucide-react';
 import type { UserRole } from '../hooks/useUser';
 
@@ -20,12 +20,12 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { icon: Home, label: 'Home', path: '/' },
-  { icon: Heart, label: 'Triage', path: '/triage' },
-  { icon: Calendar, label: 'Bookings', path: '/book' },
-  { icon: Users, label: 'Peer Rooms', path: '/rooms' },
-  { icon: AlertCircle, label: 'Crisis Help', path: '/crisis' },
-  { icon: LayoutDashboard, label: 'Admin', path: '/admin', roles: ['admin'] },
+  { icon: Home, label: 'Dashboard', path: '/dashboard' },
+  { icon: Heart, label: 'Get Support', path: '/triage', roles: ['student'] },
+  { icon: MessageCircle, label: 'My Chats', path: '/support/my-rooms' },
+  { icon: Users, label: 'Support Queue', path: '/supporter/queue', roles: ['counselor', 'intern', 'moderator', 'admin'] },
+  { icon: Shield, label: 'Peer Applications', path: '/admin/peers', roles: ['admin'] },
+  { icon: Settings, label: 'Settings', path: '/settings' },
 ];
 
 interface SidebarProps {

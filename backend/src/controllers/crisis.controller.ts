@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { z } from 'zod';
 import prisma from '../lib/prisma';
 import { AuthRequest } from '../middleware/auth';
+import { getIO } from '../sockets';
 // Temporarily disabled Redis job
 // import { addCrisisAlertJob } from '../jobs/crisisAlert.job';
 
@@ -21,10 +22,32 @@ export const createCrisisAlert = async (req: AuthRequest, res: Response): Promis
       },
       include: {
         user: {
-          select: { id: true, name: true, email: true },
+          select: { 
+            id: true, 
+            name: true, 
+            displayName: true,
+            email: true,
+            ageBracket: true,
+          },
         },
       },
     });
+
+    // Emit real-time notification to all counselors via Socket.IO
+    const io = getIO();
+    if (io && alert.user) {
+      io.to('counselors').emit('crisis:alert', {
+        id: alert.id,
+        userId: alert.userId,
+        userName: alert.user.displayName || alert.user.name || 'Student',
+        userEmail: alert.user.email,
+        ageBracket: alert.user.ageBracket,
+        message: alert.message,
+        status: alert.status,
+        createdAt: alert.createdAt,
+      });
+      console.log('🚨 CRISIS ALERT emitted to counselors via Socket.IO');
+    }
 
     // Queue background job for notification (disabled - Redis not installed)
     // await addCrisisAlertJob({
@@ -35,10 +58,10 @@ export const createCrisisAlert = async (req: AuthRequest, res: Response): Promis
     //   message: alert.message,
     // });
     
-    // Log alert instead
+    // Log alert
     console.log('🚨 CRISIS ALERT:', {
       id: alert.id,
-      user: alert.user.name,
+      user: alert.user?.displayName || alert.user?.name || 'Unknown',
       message: alert.message
     });
 
@@ -59,7 +82,7 @@ export const createCrisisAlert = async (req: AuthRequest, res: Response): Promis
   }
 };
 
-export const getCrisisAlerts = async (req: AuthRequest, res: Response): Promise<void> => {
+export const getCrisisAlerts = async (_req: AuthRequest, res: Response): Promise<void> => {
   try {
     const alerts = await prisma.crisisAlert.findMany({
       where: {

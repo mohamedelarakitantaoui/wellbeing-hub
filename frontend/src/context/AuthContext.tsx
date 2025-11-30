@@ -19,7 +19,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isMinor: boolean;
   needsConsent: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<User>;
   register: (data: {
     email: string;
     password: string;
@@ -50,11 +50,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       try {
-        const { user: userData } = await api.getMe();
+        // Add a timeout to prevent infinite loading
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Request timeout')), 5000);
+        });
+
+        const userPromise = api.getMe();
+        const { user: userData } = await Promise.race([userPromise, timeoutPromise]) as { user: any };
         setUser(userData);
       } catch (err) {
         console.error('Failed to fetch user:', err);
+        // Clear invalid token
         removeToken();
+        setUser(null);
       } finally {
         setLoading(false);
       }
@@ -70,6 +78,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const { user: userData, token } = await api.login({ email, password });
       setToken(token);
       setUser(userData);
+      return userData; // Return user data for redirect logic
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Login failed';
       setError(message);

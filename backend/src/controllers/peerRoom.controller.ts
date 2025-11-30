@@ -12,7 +12,7 @@ import { AuthRequest } from '../middleware/auth';
  * GET /api/rooms
  * List all peer rooms
  */
-export async function listRooms(req: AuthRequest, res: Response) {
+export async function listRooms(_req: AuthRequest, res: Response) {
   try {
     const rooms = await prisma.peerRoom.findMany({
       select: {
@@ -74,7 +74,7 @@ export async function getRoomMetadata(req: AuthRequest, res: Response) {
     if (user) {
       const accessCheck = canAccessRoom(
         user.ageBracket,
-        user.consentMinorOk,
+        user.hasConsent ?? false,
         room.isMinorSafe
       );
 
@@ -117,7 +117,7 @@ export async function getRoomMessages(req: AuthRequest, res: Response) {
     if (user) {
       const accessCheck = canAccessRoom(
         user.ageBracket,
-        user.consentMinorOk,
+        user.hasConsent ?? false,
         room.isMinorSafe
       );
 
@@ -149,7 +149,7 @@ export async function getRoomMessages(req: AuthRequest, res: Response) {
         createdAt: 'asc', // Changed to ascending for proper chat order
       },
       include: {
-        user: {
+        author: {
           select: {
             id: true,
             displayName: true,
@@ -174,8 +174,8 @@ export async function getRoomMessages(req: AuthRequest, res: Response) {
       flagged: msg.flagged,
       flags: JSON.parse(msg.flags),
       author: {
-        id: msg.user.id,
-        displayName: msg.user.displayName || msg.user.name,
+        id: msg.author.id,
+        displayName: msg.author.displayName || msg.author.name,
       },
     }));
 
@@ -229,7 +229,7 @@ export async function createMessage(req: AuthRequest, res: Response) {
     // Check if user can access this room
     const accessCheck = canAccessRoom(
       user.ageBracket,
-      user.consentMinorOk,
+      user.hasConsent ?? false,
       room.isMinorSafe
     );
 
@@ -238,7 +238,7 @@ export async function createMessage(req: AuthRequest, res: Response) {
     }
 
     // Check if user is under 18 and has consent
-    if (user.ageBracket === 'MINOR' && !user.consentMinorOk) {
+    if (user.ageBracket === 'UNDER18' && !user.hasConsent) {
       return res.status(403).json({ 
         error: 'Parental consent required for minors to post messages' 
       });
@@ -251,13 +251,13 @@ export async function createMessage(req: AuthRequest, res: Response) {
     const message = await prisma.peerMessage.create({
       data: {
         roomId: room.id,
-        authorId: user.id,
+        authorId: user.sub,
         body: body.trim(),
         flagged: moderation.flagged,
         flags: JSON.stringify(moderation.flags),
       },
       include: {
-        user: {
+        author: {
           select: {
             id: true,
             displayName: true,
@@ -271,7 +271,8 @@ export async function createMessage(req: AuthRequest, res: Response) {
     if (moderation.flagged) {
       await prisma.auditLog.create({
         data: {
-          actorId: user.id,
+          actorId: user.sub,
+          eventType: 'MESSAGE_FLAGGED',
           action: 'MESSAGE_FLAGGED',
           metadata: JSON.stringify({
             messageId: message.id,
@@ -285,7 +286,7 @@ export async function createMessage(req: AuthRequest, res: Response) {
 
       console.warn(`⚠️  Message flagged in room ${slug}:`, {
         messageId: message.id,
-        userId: user.id,
+        userId: user.sub,
         flags: moderation.flags,
       });
     }

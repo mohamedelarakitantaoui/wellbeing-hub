@@ -17,9 +17,23 @@ const updateBookingSchema = z.object({
 
 export const createBooking = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    const studentId = req.user?.sub;
+    
+    if (!studentId) {
+      res.status(401).json({ error: 'User not authenticated' });
+      return;
+    }
+
     const validatedData = bookingSchema.parse(req.body);
     const startAt = new Date(validatedData.startAt);
     const endAt = new Date(validatedData.endAt);
+
+    // Validate minimum 30-minute duration
+    const durationMinutes = (endAt.getTime() - startAt.getTime()) / (1000 * 60);
+    if (durationMinutes < 30) {
+      res.status(400).json({ error: 'Booking must be at least 30 minutes long' });
+      return;
+    }
 
     // Validate counselor exists and has counselor role
     const counselor = await prisma.user.findUnique({
@@ -67,7 +81,7 @@ export const createBooking = async (req: AuthRequest, res: Response): Promise<vo
     // Create booking
     const booking = await prisma.booking.create({
       data: {
-        studentId: req.user!.id,
+        studentId,
         counselorId: validatedData.counselorId,
         startAt,
         endAt,
@@ -97,10 +111,10 @@ export const getMyBookings = async (req: AuthRequest, res: Response): Promise<vo
     const isCounselor = req.user!.role === 'counselor';
 
     const where = isStudent
-      ? { studentId: req.user!.id }
+      ? { studentId: req.user!.sub }
       : isCounselor
-      ? { counselorId: req.user!.id }
-      : { OR: [{ studentId: req.user!.id }, { counselorId: req.user!.id }] };
+      ? { counselorId: req.user!.sub }
+      : { OR: [{ studentId: req.user!.sub }, { counselorId: req.user!.sub }] };
 
     const bookings = await prisma.booking.findMany({
       where,
@@ -137,8 +151,8 @@ export const updateBooking = async (req: AuthRequest, res: Response): Promise<vo
       return;
     }
 
-    const isStudent = req.user!.id === booking.studentId;
-    const isCounselor = req.user!.id === booking.counselorId;
+    const isStudent = req.user!.sub === booking.studentId;
+    const isCounselor = req.user!.sub === booking.counselorId;
     const isAdmin = req.user!.role === 'admin';
 
     if (!isStudent && !isCounselor && !isAdmin) {
@@ -171,7 +185,7 @@ export const updateBooking = async (req: AuthRequest, res: Response): Promise<vo
   }
 };
 
-export const getCounselors = async (req: AuthRequest, res: Response): Promise<void> => {
+export const getCounselors = async (_req: AuthRequest, res: Response): Promise<void> => {
   try {
     const counselors = await prisma.user.findMany({
       where: { role: 'counselor' },

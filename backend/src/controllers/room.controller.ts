@@ -12,7 +12,7 @@ import { AuthRequest } from '../middleware/auth';
  * GET /api/rooms
  * List all peer rooms
  */
-export const getRooms = async (req: AuthRequest, res: Response): Promise<void> => {
+export const getRooms = async (_req: AuthRequest, res: Response): Promise<void> => {
   try {
     const rooms = await prisma.peerRoom.findMany({
       select: {
@@ -155,7 +155,7 @@ export const sendMessage = async (req: AuthRequest, res: Response): Promise<void
     }
 
     // Check if user is under 18 and has consent
-    if (user.ageBracket === 'MINOR' && !user.consentMinorOk) {
+    if (user.ageBracket === 'UNDER18' && !user.consentMinorOk) {
       res.status(403).json({ 
         error: 'Parental consent required for minors to post messages' 
       });
@@ -169,13 +169,13 @@ export const sendMessage = async (req: AuthRequest, res: Response): Promise<void
     const message = await prisma.peerMessage.create({
       data: {
         roomId: room.id,
-        authorId: user.id,
+        authorId: user.id!,
         body: content.trim(),
         flagged: moderation.flagged,
         flags: JSON.stringify(moderation.flags),
       },
       include: {
-        user: {
+        author: {
           select: {
             id: true,
             displayName: true,
@@ -189,8 +189,10 @@ export const sendMessage = async (req: AuthRequest, res: Response): Promise<void
     if (moderation.flagged) {
       await prisma.auditLog.create({
         data: {
-          actorId: user.id,
+          actorId: user.id!,
           action: 'MESSAGE_FLAGGED',
+          eventType: 'MESSAGE_FLAGGED',
+          roomId: room.id,
           metadata: JSON.stringify({
             messageId: message.id,
             roomSlug: room.slug,
@@ -238,7 +240,7 @@ export const getFlaggedMessages = async (req: AuthRequest, res: Response): Promi
             title: true,
           },
         },
-        user: {
+        author: {
           select: {
             id: true,
             email: true,

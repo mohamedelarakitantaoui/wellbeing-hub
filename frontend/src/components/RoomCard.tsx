@@ -16,30 +16,30 @@ export function RoomCard({ slug, title, topic, isMinorSafe, messageCount }: Room
 
   return (
     <Card 
-      className="cursor-pointer hover:shadow-lg transition-shadow duration-200"
+      className="cursor-pointer hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 bg-white rounded-3xl border border-primary-100/50 hover:border-primary-400"
       onClick={() => navigate(`/rooms/${slug}`)}
     >
-      <CardHeader>
+      <CardHeader className="p-6">
         <div className="flex items-start justify-between">
           <div className="flex-1">
-            <CardTitle className="text-xl font-bold text-[#003B5C]">
+            <CardTitle className="text-2xl font-bold text-primary-700 mb-2">
               {title}
             </CardTitle>
-            <CardDescription className="mt-1 text-sm text-gray-600">
+            <CardDescription className="mt-2 text-base text-text-secondary leading-relaxed">
               {topic}
             </CardDescription>
           </div>
           {isMinorSafe && (
-            <Badge variant="secondary" className="ml-2 bg-green-100 text-green-800 hover:bg-green-200">
-              <Shield className="w-3 h-3 mr-1" />
+            <Badge variant="secondary" className="ml-3 bg-accent-success/15 text-accent-success hover:bg-accent-success/25 border border-accent-success/30 font-semibold px-3 py-1.5 rounded-full">
+              <Shield className="w-4 h-4 mr-1.5" />
               Minor Safe
             </Badge>
           )}
         </div>
       </CardHeader>
-      <CardContent>
-        <div className="flex items-center text-sm text-gray-500">
-          <MessageCircle className="w-4 h-4 mr-2" />
+      <CardContent className="p-6 pt-0">
+        <div className="flex items-center text-base text-text-muted font-medium">
+          <MessageCircle className="w-5 h-5 mr-2 text-secondary-teal" />
           <span>{messageCount || 0} messages</span>
         </div>
       </CardContent>
