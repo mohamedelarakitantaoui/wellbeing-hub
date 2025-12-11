@@ -3,11 +3,18 @@ import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { socialLogin } from '../controllers/auth.controller';
 
 export const setupGoogleStrategy = () => {
+  // Only setup Google OAuth if credentials are provided
+  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET || 
+      process.env.GOOGLE_CLIENT_ID === 'placeholder' || process.env.GOOGLE_CLIENT_SECRET === 'placeholder') {
+    console.log('⚠️ Google OAuth not configured - skipping setup');
+    return;
+  }
+
   passport.use(
     new GoogleStrategy(
       {
-        clientID: process.env.GOOGLE_CLIENT_ID!,
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+        clientID: process.env.GOOGLE_CLIENT_ID,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
         callbackURL: `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/auth/google/callback`,
         scope: ['email', 'profile'],
       },

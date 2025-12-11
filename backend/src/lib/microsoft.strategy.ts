@@ -3,11 +3,18 @@ import { Strategy as MicrosoftStrategy } from 'passport-microsoft';
 import { socialLogin } from '../controllers/auth.controller';
 
 export const setupMicrosoftStrategy = () => {
+  // Only setup Microsoft OAuth if credentials are provided
+  if (!process.env.MICROSOFT_CLIENT_ID || !process.env.MICROSOFT_CLIENT_SECRET ||
+      process.env.MICROSOFT_CLIENT_ID === 'placeholder' || process.env.MICROSOFT_CLIENT_SECRET === 'placeholder') {
+    console.log('⚠️ Microsoft OAuth not configured - skipping setup');
+    return;
+  }
+
   passport.use(
     new MicrosoftStrategy(
       {
-        clientID: process.env.MICROSOFT_CLIENT_ID!,
-        clientSecret: process.env.MICROSOFT_CLIENT_SECRET!,
+        clientID: process.env.MICROSOFT_CLIENT_ID,
+        clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
         callbackURL: `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/auth/microsoft/callback`,
         scope: ['user.read'],
         tenant: 'common', // Allow both personal and work/school accounts
