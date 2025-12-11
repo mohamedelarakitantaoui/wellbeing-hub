@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CheckCircle, XCircle, Eye, Filter, Search, User, Clock, Mail } from 'lucide-react';
+import { CheckCircle, XCircle, Eye, Search, User, Clock, Mail } from 'lucide-react';
 import { api } from '../../lib/api';
 
 interface PeerApplication {

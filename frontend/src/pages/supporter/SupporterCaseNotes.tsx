@@ -97,7 +97,7 @@ export function SupporterCaseNotes() {
             id: booking.id,
             type: 'booking',
             date: booking.startAt,
-            studentName: booking.student.displayName || booking.student.name,
+            studentName: (booking.student as any).displayName || booking.student.name,
             studentEmail: booking.student.email,
             topic: 'Counseling Session',
             duration,
