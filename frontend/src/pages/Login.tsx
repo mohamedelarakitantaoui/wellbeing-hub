@@ -168,7 +168,7 @@ export const Login = () => {
                 onChange={handleChange}
                 required
                 autoComplete="email"
-                className={`w-full px-5 py-3.5 border-2 rounded-2xl focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all duration-200 text-base ${
+                className={`w-full px-5 py-3.5 border-2 rounded-2xl focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all duration-200 text-base text-fg placeholder:text-fg-muted ${
                   validationErrors.email ? 'border-red-300 bg-red-50' : 'border-border'
                 }`}
                 placeholder="your.email@aui.ma"
@@ -199,7 +199,7 @@ export const Login = () => {
                   onChange={handleChange}
                   required
                   autoComplete="current-password"
-                  className={`w-full px-5 py-3.5 pr-12 border-2 rounded-2xl focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all duration-200 text-base ${
+                  className={`w-full px-5 py-3.5 pr-12 border-2 rounded-2xl focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all duration-200 text-base text-fg placeholder:text-fg-muted ${
                     validationErrors.password ? 'border-red-300 bg-red-50' : 'border-border'
                   }`}
                   placeholder="Enter your password"

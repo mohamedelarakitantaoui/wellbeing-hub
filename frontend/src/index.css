@@ -384,6 +384,17 @@ a:hover {
   color: var(--color-fg-muted);
 }
 
+/* Make sure plain inputs have accessible placeholders across the app */
+input::placeholder, textarea::placeholder {
+  color: var(--color-fg-muted);
+  opacity: 1; /* ensure visible */
+}
+
+/* Ensure explicit default text color for general inputs (fallback for classes) */
+input, textarea, select {
+  color: var(--color-fg);
+}
+
 /**
  * 🧭 Navigation Styles
  */
